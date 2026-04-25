@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>쇼핑 리스트</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+
+    .app {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 480px;
+      height: fit-content;
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      padding: 28px 24px 20px;
+    }
+
+    .header h1 { font-size: 1.6rem; font-weight: 700; }
+    .header .count { font-size: 0.85rem; opacity: 0.8; margin-top: 4px; }
+
+    .input-area {
+      display: flex;
+      gap: 8px;
+      padding: 20px 20px 12px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .input-area input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .input-area input:focus { border-color: #667eea; }
+
+    .input-area button {
+      padding: 10px 18px;
+      background: #667eea;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .input-area button:hover { background: #5a6fd6; }
+
+    .filter-bar {
+      display: flex;
+      gap: 6px;
+      padding: 12px 20px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .filter-bar button {
+      padding: 5px 14px;
+      border: 1.5px solid #ddd;
+      border-radius: 20px;
+      background: transparent;
+      font-size: 0.82rem;
+      cursor: pointer;
+      color: #666;
+      transition: all 0.2s;
+    }
+
+    .filter-bar button.active {
+      background: #667eea;
+      border-color: #667eea;
+      color: #fff;
+    }
+
+    .list { padding: 8px 0; min-height: 80px; }
+
+    .empty {
+      text-align: center;
+      color: #aaa;
+      font-size: 0.9rem;
+      padding: 40px 0;
+    }
+
+    .item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 20px;
+      border-bottom: 1px solid #f5f5f5;
+      transition: background 0.15s;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .item:hover { background: #fafafa; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: #667eea;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .item-text {
+      flex: 1;
+      font-size: 0.95rem;
+      color: #333;
+      transition: all 0.2s;
+      word-break: break-all;
+    }
+
+    .item.checked .item-text {
+      text-decoration: line-through;
+      color: #aaa;
+    }
+
+    .delete-btn {
+      background: none;
+      border: none;
+      color: #ccc;
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 6px;
+      line-height: 1;
+      transition: color 0.2s, background 0.2s;
+    }
+
+    .delete-btn:hover { color: #e53e3e; background: #fff5f5; }
+
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 20px;
+      border-top: 1px solid #eee;
+      font-size: 0.82rem;
+      color: #999;
+    }
+
+    .footer button {
+      background: none;
+      border: none;
+      color: #e53e3e;
+      font-size: 0.82rem;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+
+    .footer button:hover { background: #fff5f5; }
+    .footer button:disabled { color: #ccc; cursor: default; }
+    .footer button:disabled:hover { background: transparent; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>쇼핑 리스트</h1>
+    <div class="count" id="count">0개 항목</div>
+  </div>
+
+  <div class="input-area">
+    <input type="text" id="newItem" placeholder="아이템 추가..." maxlength="80">
+    <button onclick="addItem()">+</button>
+  </div>
+
+  <div class="filter-bar">
+    <button class="active" onclick="setFilter('all', this)">전체</button>
+    <button onclick="setFilter('active', this)">미완료</button>
+    <button onclick="setFilter('done', this)">완료</button>
+  </div>
+
+  <div class="list" id="list"></div>
+
+  <div class="footer">
+    <span id="remaining"></span>
+    <button id="clearBtn" onclick="clearDone()">완료 항목 삭제</button>
+  </div>
+</div>
+
+<script>
+  let items = JSON.parse(localStorage.getItem('shopping') || '[]');
+  let filter = 'all';
+
+  function save() {
+    localStorage.setItem('shopping', JSON.stringify(items));
+  }
+
+  function render() {
+    const list = document.getElementById('list');
+    const filtered = items.filter(item =>
+      filter === 'all' ? true :
+      filter === 'active' ? !item.done :
+      item.done
+    );
+
+    if (filtered.length === 0) {
+      list.innerHTML = '<div class="empty">항목이 없습니다</div>';
+    } else {
+      list.innerHTML = filtered.map(item => `
+        <div class="item ${item.done ? 'checked' : ''}" id="item-${item.id}">
+          <input type="checkbox" ${item.done ? 'checked' : ''} onchange="toggle(${item.id})">
+          <span class="item-text">${escHtml(item.text)}</span>
+          <button class="delete-btn" onclick="remove(${item.id})" title="삭제">&#x2715;</button>
+        </div>
+      `).join('');
+    }
+
+    const total = items.length;
+    const done = items.filter(i => i.done).length;
+    const active = total - done;
+
+    document.getElementById('count').textContent = `${total}개 항목`;
+    document.getElementById('remaining').textContent = `미완료 ${active}개`;
+    document.getElementById('clearBtn').disabled = done === 0;
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function addItem() {
+    const input = document.getElementById('newItem');
+    const text = input.value.trim();
+    if (!text) return;
+    items.unshift({ id: Date.now(), text, done: false });
+    input.value = '';
+    save();
+    render();
+    input.focus();
+  }
+
+  function toggle(id) {
+    const item = items.find(i => i.id === id);
+    if (item) { item.done = !item.done; save(); render(); }
+  }
+
+  function remove(id) {
+    items = items.filter(i => i.id !== id);
+    save();
+    render();
+  }
+
+  function clearDone() {
+    items = items.filter(i => !i.done);
+    save();
+    render();
+  }
+
+  function setFilter(f, btn) {
+    filter = f;
+    document.querySelectorAll('.filter-bar button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    render();
+  }
+
+  document.getElementById('newItem').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addItem();
+  });
+
+  render();
+</script>
+</body>
+</html>
